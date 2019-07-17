@@ -4,7 +4,7 @@
 #include <arpa/inet.h>
 //code for IPv4 & TCP ^^
 
-#pragma pack(push, 1)
+#pragma pack(1)
 typedef struct Ethernet //14byte
 {
     u_int8_t Destination_MacAddress[6];
@@ -14,7 +14,12 @@ typedef struct Ethernet //14byte
 
 typedef struct IP //20byte
 {
-    u_int8_t Else[9];
+    u_int8_t versionHL; //version + Header Lengrth
+    u_int8_t TOS;
+    u_int16_t TL; //Total Length
+    u_int16_t Id;
+    u_int16_t flagOffset; //Fragment + offset;
+    u_int8_t TTL;
     u_int8_t ProtocolID; // ID == 6 : TCP, ID == 17: UDP
     u_int16_t HeaderChecksum;
     u_int8_t SourceIPAddress[4];
@@ -33,7 +38,7 @@ typedef struct TCP//20byte
     u_int16_t CheckSum;
     u_int16_t URG;
 }TCP;
-#pragma pack(pop)
+
 void print_mac(uint8_t *mac){
     printf("%02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2],
             mac[3], mac[4], mac[5]);
@@ -85,7 +90,7 @@ int main(int argc, char* argv[]) {
     print_mac(P_Ethernet->Destination_MacAddress);
 
     //IPHeader
-    printf("-------------------------------IP-----------------------------------\n");
+    printf("------------------------------IP------------------------------------\n");
     if(uint16_t(ntohs((P_Ethernet->Ethernet_Type)) == 0x0800)){
         printf("It is IP!\n");
         packet += sizeof (struct Ethernet); // move to IPHeader
@@ -96,7 +101,7 @@ int main(int argc, char* argv[]) {
         print_ip(P_Ip->DestinationIPAddress);
 
         //TCP Header
-        printf("---------------------------------TCP--------------------------------\n");
+        printf("------------------------------TCP-----------------------------------\n");
         if(uint8_t(P_Ip->ProtocolID) == 0x06){
             printf("It is TCP!\n");
             packet += sizeof (struct IP);
@@ -105,15 +110,26 @@ int main(int argc, char* argv[]) {
             printf("DestinationPort Number is : ");
             print_port(P_Tcp->Destination_PortNumber);
             //TCP Data & Location
-            int HLength = P_Tcp->HeaderLength * 4; //TCP Header length
-            printf("TCP Length is %X byte!\n", P_Tcp->HeaderLength);
-            for (int i = 0; i < HLength; i++){
-                printf("%02X",packet[i]);
-            }
-            printf("\n");
+            int HLength = P_Tcp->HeaderLength * 4;
+            //TCP Header length
+            printf("TCP Length is %d byte!\n", P_Tcp->HeaderLength);
+            if((P_Tcp->Destination_PortNumber[0]) << 8 |
+                    (P_Tcp->Destination_PortNumber[1]) == 0x0050){
+                printf("-----------------------------http------------------------------------\n");
+                printf("It is http!\n");
+                packet += sizeof(struct TCP);
+                for (int i = 0; i < 10; i++){
+                    if(i != 9){
+                        printf("%02X:", packet[i]);
+                    }
+                    else {
+                        printf("%02X", packet[i]);
+                    }
+                                        }
+                printf("\n");
             printf("====================================================================\n");
+            }
         }
-
     }
     else {
         printf("Etehrnet type is %X. If is not 0x800 then It is not IPv4 ", uint16_t(ntohs((P_Ethernet->Ethernet_Type))));
