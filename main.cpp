@@ -15,7 +15,7 @@ typedef struct Ethernet //14byte
 
 typedef struct IP //HeaderLength * 4 == sizeof(struct IP)
 {
-    u_int8_t HeaderLength : 4; // I chaged order of HL and version because they printed reversed...
+    u_int8_t IPHeaderLength : 4; // I chaged order of HL and version because they printed reversed...
     u_int8_t version : 4;
     u_int8_t TOS;
     u_int16_t TL; //Total Length
@@ -34,8 +34,8 @@ typedef struct TCP//
     u_int8_t Destination_PortNumber[2]; //if Number == 80: http, Number == 443 : https
     u_int32_t SequenceNumber;
     u_int32_t AckNum;
-    u_int8_t HeaderLength : 4;
-    u_int16_t ReservednFlags : 12;//Reserved + Flags
+    u_int8_t DataOffset;
+    u_int8_t ReservednFlags;//Reserved + Flags
     u_int16_t WindowSize;
     u_int16_t CheckSum;
     u_int16_t URG;
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
     printf("\n");
     //Ethernet
     P_Ethernet = (struct Ethernet*)packet;
-    printf("----------------------------Ethernet--------------------------------\n");
+    printf("-----------------------Ethernet---------------------------\n");
     printf("SourceMacAddress is : ");
     print_mac(P_Ethernet->Source_MacAddress);
     printf("DestinationMacAddress is : ");
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
     printf("Ethernet Header Length is %d byte\n", sizeof(struct Ethernet));
 
     //IPHeader
-    printf("------------------------------IP------------------------------------\n");
+    printf("-------------------------IP-------------------------------\n");
     if(uint16_t(ntohs((P_Ethernet->Ethernet_Type)) == 0x0800)){
         printf("It is IP!\n");
 
@@ -92,28 +92,33 @@ int main(int argc, char* argv[]) {
         print_ip(P_Ip->SourceIPAddress);
         printf("Destination IP Address is : ");
         print_ip(P_Ip->DestinationIPAddress);
-        printf("Header Length is %d Word(init32)\n", P_Ip->HeaderLength);
-        printf("IP Length is %d byte!\n", P_Ip->HeaderLength * 4);
+        printf("Header Length is %d Word(init32)\n", P_Ip->IPHeaderLength);
+        printf("IP Length is %d byte!\n", P_Ip->IPHeaderLength * 4);
 
         //TCP Header
-        printf("------------------------------TCP-----------------------------------\n");
+        printf("-------------------------TCP------------------------------\n");
         if(uint8_t(P_Ip->ProtocolID) == 0x06){
             printf("It is TCP!\n");
-            P_Tcp =(struct TCP*)(packet+ + sizeof(struct Ethernet) + sizeof(P_Ip->HeaderLength *4));
+            P_Tcp =(struct TCP*)(packet+ + sizeof(struct Ethernet) + P_Ip->IPHeaderLength *4);
             printf("SourcePort Number is : ");
             print_port(P_Tcp->Source_PortNumber);
             printf("DestinationPort Number is : ");
             print_port(P_Tcp->Destination_PortNumber);
 
             //TCP Header length
-            printf("Header Length is %d Word(init32)\n", P_Tcp->HeaderLength);
-            printf("TCP Header Length is %d byte.\n", P_Tcp->HeaderLength * 4);
+            //TCP Data length == Total length - (IHL + DataOffset)*4
+            u_int16_t Total = (P_Ip->TL >> 8 | P_Ip->TL << 8);
+            printf("TotalLength is %d byte!\n", Total);
+            printf("IPHeaderLength is %d byte!\n", P_Ip->IPHeaderLength * 4);
+            printf("DataOffset is  %d byte!\n", (P_Tcp->DataOffset >> 4) * 4);
+            printf("TCP Data Length is %d byte!\n", Total - ((P_Ip->IPHeaderLength) + (P_Tcp->DataOffset >> 4)) *4);
+
+            //http
             if((P_Tcp->Destination_PortNumber[0]) << 8 |
                     (P_Tcp->Destination_PortNumber[1]) == 0x0050){
-                printf("-----------------------------http------------------------------------\n");
+                printf("------------------------http-------------------------------\n");
                 printf("It is http!\n");
-                packet += sizeof(P_Tcp->HeaderLength * 4); //move to http
-                printf("%X", P_Tcp->HeaderLength);
+                packet += P_Tcp->DataOffset * 4; //move to http
                 //printf("%.30s",packet);
                 for (int i = 0; i < 10; i++){
                     if(i != 9){
@@ -123,7 +128,7 @@ int main(int argc, char* argv[]) {
                         printf("%02X\n", packet[i]);
                     }
                                         }
-                printf("======================================================================\n");
+                printf("===========================================================\n");
             printf("\n");
             }
         }

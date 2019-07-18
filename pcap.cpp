@@ -14,3 +14,4 @@ void print_ip(uint8_t *ip){
 void print_port(uint8_t *port){
     printf("%d\n", (port[0] << 8) | port[1]);
 }
+
