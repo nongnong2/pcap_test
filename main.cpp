@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <arpa/inet.h>
+#include "pcap_test.h"
+
 //code for IPv4 & TCP ^^
 
 typedef struct Ethernet //14byte
@@ -39,25 +41,13 @@ typedef struct TCP//
     u_int16_t URG;
 }TCP;
 
-void print_mac(uint8_t *mac){
-    printf("%02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2],
-            mac[3], mac[4], mac[5]);
-}
-
-void print_ip(uint8_t *ip){
-    printf("%d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
-}
-
-void print_port(uint8_t *port){
-    printf("%d\n", (port[0] << 8) | port[1]);
-}
-
 void usage() {
   printf("syntax: pcap_test <interface>\n");
   printf("sample: pcap_test wlan0\n");
 }
 
 int main(int argc, char* argv[]) {
+    //struct pointer
     Ethernet *P_Ethernet;
     IP *P_Ip;
     TCP *P_Tcp;
@@ -81,6 +71,7 @@ int main(int argc, char* argv[]) {
     int res = pcap_next_ex(handle, &header, &packet);
     if (res == 0) continue;
     if (res == -1 || res == -2) break;
+
     printf("\n");
     //Ethernet
     P_Ethernet = (struct Ethernet*)packet;
@@ -89,38 +80,40 @@ int main(int argc, char* argv[]) {
     print_mac(P_Ethernet->Source_MacAddress);
     printf("DestinationMacAddress is : ");
     print_mac(P_Ethernet->Destination_MacAddress);
-    printf("Ethernet Header Length is %d byte\n", sizeof (struct Ethernet));
+    printf("Ethernet Header Length is %d byte\n", sizeof(struct Ethernet));
 
     //IPHeader
     printf("------------------------------IP------------------------------------\n");
     if(uint16_t(ntohs((P_Ethernet->Ethernet_Type)) == 0x0800)){
         printf("It is IP!\n");
-        packet += sizeof (struct Ethernet); // move to IPHeader
-        P_Ip = (struct IP*)packet;
+
+        P_Ip = (struct IP*)(packet + sizeof(struct Ethernet));
         printf("Source IP Address is : ");
         print_ip(P_Ip->SourceIPAddress);
         printf("Destination IP Address is : ");
         print_ip(P_Ip->DestinationIPAddress);
-        printf("Header Length is %d byte\n", P_Ip->HeaderLength);
+        printf("Header Length is %d Word(init32)\n", P_Ip->HeaderLength);
         printf("IP Length is %d byte!\n", P_Ip->HeaderLength * 4);
 
         //TCP Header
         printf("------------------------------TCP-----------------------------------\n");
         if(uint8_t(P_Ip->ProtocolID) == 0x06){
             printf("It is TCP!\n");
-            packet += sizeof(P_Ip->HeaderLength *4); // move to TCP
+            P_Tcp =(struct TCP*)(packet+ + sizeof(struct Ethernet) + sizeof(P_Ip->HeaderLength *4));
             printf("SourcePort Number is : ");
             print_port(P_Tcp->Source_PortNumber);
             printf("DestinationPort Number is : ");
             print_port(P_Tcp->Destination_PortNumber);
+
             //TCP Header length
-            printf("%d byte\n", P_Tcp->HeaderLength);
-            printf("TCP Header Length is %d byte!\n", P_Tcp->HeaderLength * 4);
+            printf("Header Length is %d Word(init32)\n", P_Tcp->HeaderLength);
+            printf("TCP Header Length is %d byte.\n", P_Tcp->HeaderLength * 4);
             if((P_Tcp->Destination_PortNumber[0]) << 8 |
                     (P_Tcp->Destination_PortNumber[1]) == 0x0050){
                 printf("-----------------------------http------------------------------------\n");
                 printf("It is http!\n");
                 packet += sizeof(P_Tcp->HeaderLength * 4); //move to http
+                printf("%X", P_Tcp->HeaderLength);
                 //printf("%.30s",packet);
                 for (int i = 0; i < 10; i++){
                     if(i != 9){
@@ -135,12 +128,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    else {
-        printf("Etehrnet type is %X. If is not 0x800 then It is not IPv4 ", uint16_t(ntohs((P_Ethernet->Ethernet_Type))));
-        printf("Protocol ID is %X. If is not 0x06 then It is not TCP.", uint8_t(P_Ip->ProtocolID));
-    }
   }
-
   pcap_close(handle);
   return 0;
 }
