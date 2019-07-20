@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <arpa/inet.h>
+#include <string.h>
 #include "pcap_test.h"
+
 
 //code for IPv4 & TCP ^^
 
@@ -41,6 +43,12 @@ typedef struct TCP//
     u_int16_t URG;
 }TCP;
 
+#pragma pack(1)
+typedef struct HTTP
+{
+    u_int8_t Data[10];
+}HTTP;
+
 void usage() {
   printf("syntax: pcap_test <interface>\n");
   printf("sample: pcap_test wlan0\n");
@@ -51,6 +59,7 @@ int main(int argc, char* argv[]) {
     Ethernet *P_Ethernet;
     IP *P_Ip;
     TCP *P_Tcp;
+    HTTP *P_Http;
 
   if (argc != 2) {
     usage();
@@ -99,7 +108,7 @@ int main(int argc, char* argv[]) {
         printf("-------------------------TCP------------------------------\n");
         if(uint8_t(P_Ip->ProtocolID) == 0x06){
             printf("It is TCP!\n");
-            P_Tcp =(struct TCP*)(packet+ + sizeof(struct Ethernet) + P_Ip->IPHeaderLength *4);
+            P_Tcp =(struct TCP*)(packet + (sizeof(struct Ethernet) + P_Ip->IPHeaderLength *4));
             printf("SourcePort Number is : ");
             print_port(P_Tcp->Source_PortNumber);
             printf("DestinationPort Number is : ");
@@ -115,26 +124,33 @@ int main(int argc, char* argv[]) {
 
             //http
             if((P_Tcp->Destination_PortNumber[0]) << 8 |
-                    (P_Tcp->Destination_PortNumber[1]) == 0x0050){
-                printf("------------------------http-------------------------------\n");
-                printf("It is http!\n");
-                packet += P_Tcp->DataOffset * 4; //move to http
-                //printf("%.30s",packet);
+                    (P_Tcp->Destination_PortNumber[1]) == 0x0050){              
+                P_Http = (struct HTTP*)(packet + (sizeof(struct Ethernet) +
+                                        P_Ip->IPHeaderLength * 4 + (P_Tcp->DataOffset >> 4) * 4));
+                if (Total - ((P_Ip->IPHeaderLength) + (P_Tcp->DataOffset >> 4)) *4 != 0){
                 for (int i = 0; i < 10; i++){
                     if(i != 9){
-                        printf("%02X:", packet[i]);
+                        printf("%02X:", P_Http->Data[i]);
                     }
                     else {
-                        printf("%02X\n", packet[i]);
+                        printf("%02X\n", P_Http->Data[i]);
                     }
+                }
+                }
+                else{
+                    printf("No TCP Data!\n");
+                }
                                         }
+            printf("------------------------http-------------------------------\n");
+            printf("It is http!\n");
                 printf("===========================================================\n");
             printf("\n");
             }
         }
     }
-  }
   pcap_close(handle);
   return 0;
-}
+  }
+
+
 
