@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <netinet/in.h>
+#include<netinet/if_ether.h>
 #include "pcap_test.h"
 
 
@@ -93,7 +95,7 @@ int main(int argc, char* argv[]) {
 
     //IPHeader
     printf("-------------------------IP-------------------------------\n");
-    if(uint16_t(ntohs((P_Ethernet->Ethernet_Type)) == 0x0800)){
+    if(uint16_t(ntohs((P_Ethernet->Ethernet_Type)) == ETHERTYPE_IP)){
         printf("It is IP!\n");
 
         P_Ip = (struct IP*)(packet + sizeof(struct Ethernet));
@@ -106,7 +108,7 @@ int main(int argc, char* argv[]) {
 
         //TCP Header
         printf("-------------------------TCP------------------------------\n");
-        if(uint8_t(P_Ip->ProtocolID) == 0x06){
+        if(uint8_t(P_Ip->ProtocolID) == IPPROTO_TCP){
             printf("It is TCP!\n");
             P_Tcp =(struct TCP*)(packet + (sizeof(struct Ethernet) + P_Ip->IPHeaderLength *4));
             printf("SourcePort Number is : ");
