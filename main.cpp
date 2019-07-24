@@ -44,10 +44,10 @@ typedef struct TCP//
 }TCP;
 
 #pragma pack(1)
-typedef struct HTTP
+typedef struct TCPData
 {
     u_int8_t Data[10];
-}HTTP;
+}TCPData;
 
 void usage() {
   printf("syntax: pcap_test <interface>\n");
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
     Ethernet *P_Ethernet;
     IP *P_Ip;
     TCP *P_Tcp;
-    HTTP *P_Http;
+    TCPData *P_TD;
 
   if (argc != 2) {
     usage();
@@ -122,25 +122,32 @@ int main(int argc, char* argv[]) {
             printf("DataOffset is  %d byte!\n", (P_Tcp->DataOffset >> 4) * 4);
             printf("TCP Data Length is %d byte!\n", Total - ((P_Ip->IPHeaderLength) + (P_Tcp->DataOffset >> 4)) *4);
 
-            //http
+            int tcpDatalen = Total - (((P_Ip->IPHeaderLength) + (P_Tcp->DataOffset >> 4)) *4);
+            if (tcpDatalen > 10){
+                tcpDatalen = 10;
+            }
+
+            //print TCP Data
             if((P_Tcp->Destination_PortNumber[0]) << 8 |
                     (P_Tcp->Destination_PortNumber[1]) == 0x0050){              
-                P_Http = (struct HTTP*)(packet + (sizeof(struct Ethernet) +
+                P_TD = (struct TCPData*)(packet + (sizeof(struct Ethernet) +
                                         P_Ip->IPHeaderLength * 4 + (P_Tcp->DataOffset >> 4) * 4));
-                if (Total - ((P_Ip->IPHeaderLength) + (P_Tcp->DataOffset >> 4)) *4 != 0){
-                for (int i = 0; i < 10; i++){
-                    if(i != 9){
-                        printf("%02X:", P_Http->Data[i]);
+                if (tcpDatalen != 0){
+                    for (int i = 1; i <= tcpDatalen; ++i){
+                        if (i != tcpDatalen){
+                            printf("%02X:",P_TD->Data[i]);
+                        }
+                        else {
+                            printf("%02X\n", P_TD->Data[i]);
+                        }
+
                     }
-                    else {
-                        printf("%02X\n", P_Http->Data[i]);
-                    }
-                }
                 }
                 else{
                     printf("No TCP Data!\n");
                 }
                                         }
+            //http
             printf("------------------------http-------------------------------\n");
             printf("It is http!\n");
                 printf("===========================================================\n");
