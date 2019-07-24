@@ -28,14 +28,14 @@ typedef struct IP //HeaderLength * 4 == sizeof(struct IP)
     u_int8_t TTL; //Time to live
     u_int8_t ProtocolID; // ID == 6 : TCP, ID == 17: UDP
     u_int16_t HeaderChecksum;
-    u_int8_t SourceIPAddress[4];
-    u_int8_t DestinationIPAddress[4];
+    u_int32_t SourceIPAddress;
+    u_int32_t DestinationIPAddress;
 }IP;
 
 typedef struct TCP//
 {
-    u_int8_t Source_PortNumber[2];
-    u_int8_t Destination_PortNumber[2]; //if Number == 80: http, Number == 443 : https
+    u_int16_t Source_PortNumber;
+    u_int16_t Destination_PortNumber; //if Number == 80: http, Number == 443 : https
     u_int32_t SequenceNumber;
     u_int32_t AckNum;
     u_int8_t DataOffset;
@@ -95,30 +95,30 @@ int main(int argc, char* argv[]) {
 
     //IPHeader
     printf("-------------------------IP-------------------------------\n");
-    if(uint16_t(ntohs((P_Ethernet->Ethernet_Type)) == ETHERTYPE_IP)){
+    if((ntohs((P_Ethernet->Ethernet_Type)) == ETHERTYPE_IP)){
         printf("It is IP!\n");
 
         P_Ip = (struct IP*)(packet + sizeof(struct Ethernet));
         printf("Source IP Address is : ");
-        print_ip(P_Ip->SourceIPAddress);
+        print_ip(&(P_Ip->SourceIPAddress));
         printf("Destination IP Address is : ");
-        print_ip(P_Ip->DestinationIPAddress);
+        print_ip(&(P_Ip->DestinationIPAddress));
         printf("Header Length is %d Word(init32)\n", P_Ip->IPHeaderLength);
         printf("IP Length is %d byte!\n", P_Ip->IPHeaderLength * 4);
 
         //TCP Header
         printf("-------------------------TCP------------------------------\n");
-        if(uint8_t(P_Ip->ProtocolID) == IPPROTO_TCP){
+        if((P_Ip->ProtocolID) == IPPROTO_TCP){
             printf("It is TCP!\n");
             P_Tcp =(struct TCP*)(packet + (sizeof(struct Ethernet) + P_Ip->IPHeaderLength *4));
             printf("SourcePort Number is : ");
-            print_port(P_Tcp->Source_PortNumber);
+            print_port(&(P_Tcp->Source_PortNumber));
             printf("DestinationPort Number is : ");
-            print_port(P_Tcp->Destination_PortNumber);
+            print_port(&(P_Tcp->Destination_PortNumber));
 
             //TCP Header length
             //TCP Data length == Total length - (IHL + DataOffset)*4
-            u_int16_t Total = (P_Ip->TL >> 8 | P_Ip->TL << 8);
+            u_int16_t Total = ntohs(P_Ip->TL);
             printf("TotalLength is %d byte!\n", Total);
             printf("IPHeaderLength is %d byte!\n", P_Ip->IPHeaderLength * 4);
             printf("DataOffset is  %d byte!\n", (P_Tcp->DataOffset >> 4) * 4);
@@ -130,11 +130,10 @@ int main(int argc, char* argv[]) {
             }
 
             //print TCP Data
-            if((P_Tcp->Destination_PortNumber[0]) << 8 |
-                    (P_Tcp->Destination_PortNumber[1]) == 0x0050){              
-                P_TD = (struct TCPData*)(packet + (sizeof(struct Ethernet) +
-                                        P_Ip->IPHeaderLength * 4 + (P_Tcp->DataOffset >> 4) * 4));
+            P_TD = (struct TCPData*)(packet + (sizeof(struct Ethernet) +
+                    P_Ip->IPHeaderLength * 4 + (P_Tcp->DataOffset >> 4) * 4));
                 if (tcpDatalen != 0){
+                    printf("There is TCP Data!\n");
                     for (int i = 1; i <= tcpDatalen; ++i){
                         if (i != tcpDatalen){
                             printf("%02X:",P_TD->Data[i]);
@@ -148,12 +147,6 @@ int main(int argc, char* argv[]) {
                 else{
                     printf("No TCP Data!\n");
                 }
-                                        }
-            //http
-            printf("------------------------http-------------------------------\n");
-            printf("It is http!\n");
-                printf("===========================================================\n");
-            printf("\n");
             }
         }
     }
